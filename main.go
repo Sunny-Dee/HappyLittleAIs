@@ -6,8 +6,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 
@@ -64,42 +66,40 @@ type PublishRequest struct {
 func main() {
 	config, err := loadConfig(".")
 	if err != nil {
-		fmt.Printf("cannot load config. Error %v", err)
+		log.Printf("cannot load config from file. Error %v", err)
+		config = loadEnvVars()
+		log.Println("loading config from environment variables")
+		if len(config.ChatGptToken) == 0 || len(config.IgID) == 0 || len(config.IgToken) == 0 {
+			log.Panic("Env vars not set.")
+		}
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
 
 	prompt, err := generatePrompt(ctx, config.ChatGptToken)
 	if err != nil {
-		fmt.Printf("Error generating prompt. %v", err)
-		cancel()
-		return
+		log.Panicf("Error generating prompt. %v", err)
 	}
 
-	fmt.Printf("Prompt:\n%s\n", prompt)
+	log.Printf("Prompt:\n%s\n", prompt)
 
 	imgUrl, err := generateImage(ctx, prompt, config.ChatGptToken)
 	if err != nil {
-		fmt.Println(err)
-		cancel()
-		return
+		log.Panicf("Generating image failed. %v", err)
 	}
-	fmt.Printf("Encoded image URL:\n%s\n", imgUrl)
+	log.Printf("Encoded image URL:\n%s\n", imgUrl)
 
 	caption := fmt.Sprintf("Prompt: %q", prompt)
  	mediaID, err := createMedia(ctx, imgUrl, caption, config.IgToken, config.IgID)
 	if err != nil {
-		fmt.Printf("Media not created. Error: %v", err)
-		cancel()
-		return
+		log.Panicf("Media not created. Error: %v", err)
 	}
 
-	fmt.Printf("Media ID: %s", mediaID)
+	log.Printf("Media ID: %s", mediaID)
 	err = postImage(ctx, mediaID, config.IgToken, config.IgID)
 	if err != nil {
-		fmt.Printf("Could not post image. Error %v\n", err)
-		cancel()
-		return
+		log.Panicf("Could not post image. Error %v\n", err)
 	}
 
 	fmt.Println("Image posted to Instagram.")
@@ -219,7 +219,7 @@ func generateImage(ctx context.Context, prompt, token string) (string, error) {
 		return "", fmt.Errorf("Response data does not contain a url. \n%q", data)
 	}
 	imgUrl := jResponse.Data[0].Url
-	fmt.Printf("Image URL:\n%s\n", imgUrl)
+	log.Printf("Image URL:\n%s\n", imgUrl)
 	return url.QueryEscape(strings.TrimSpace(imgUrl)), nil
 }
 
@@ -298,7 +298,7 @@ func postImage(ctx context.Context, mediaID, igToken, igID string) error {
 		return err
 	}
 	
-	fmt.Printf("Response: %s\n", data)
+	log.Printf("Response: %s\n", data)
 	return nil
 }
 
@@ -320,4 +320,12 @@ func loadConfig(path string)(config Config, err error) {
 
     err = viper.Unmarshal(&config)
     return
+}
+
+func loadEnvVars()Config {
+	return Config {
+		ChatGptToken: os.Getenv("CHAT_GPT_TOKEN"),
+		IgToken: os.Getenv("IG_TOKEN"),
+		IgID: os.Getenv("IG_ID"),
+	}
 }

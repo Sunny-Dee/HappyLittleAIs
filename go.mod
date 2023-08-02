@@ -1,4 +1,4 @@
-module AI-rtist
+module happylittleais
 
 go 1.20
 
