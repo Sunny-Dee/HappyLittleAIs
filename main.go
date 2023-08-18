@@ -5,7 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"net/url"
@@ -16,11 +16,9 @@ import (
 	"github.com/spf13/viper"
 )
 
-// TODO remove unnecessary print statements from non main methods
 // TODO move functions to their own files or packages
 // TODO refresh IG token as part of flow
 // TODO return named values
-// TODO change all print statements to log
 const timeout = 5 * time.Minute
 
 type Response struct {
@@ -84,13 +82,13 @@ func main() {
 
 	log.Printf("Prompt:\n%s\n", prompt)
 
-	imgUrl, err := generateImage(ctx, prompt, config.ChatGptToken)
+	imgUrl, err := generateImage(ctx, fmt.Sprintf("Digital art, %s", prompt), config.ChatGptToken)
 	if err != nil {
 		log.Panicf("Generating image failed. %v", err)
 	}
 	log.Printf("Encoded image URL:\n%s\n", imgUrl)
 
-	caption := fmt.Sprintf("Prompt: %q", prompt)
+	caption := fmt.Sprintf("Prompt: %s", prompt)
  	mediaID, err := createMedia(ctx, imgUrl, caption, config.IgToken, config.IgID)
 	if err != nil {
 		log.Panicf("Media not created. Error: %v", err)
@@ -116,7 +114,7 @@ func generatePrompt(ctx context.Context, token string) (string, error) {
 		"messages": [
 			{
 				"role": "system",
-				"content": "Describe a new and original art piece in the style of an artist in 50 words or less."
+				"content": "Original art piece description in a specific style in about 30 words."
 			}
 		]
 	}`)
@@ -145,7 +143,7 @@ func generatePrompt(ctx context.Context, token string) (string, error) {
 	}
 
 	// Read the response body
-	data, err := ioutil.ReadAll(response.Body)
+	data, err := io.ReadAll(response.Body)
 	if err != nil {
 		fmt.Println(err)
 		return "", err
@@ -201,7 +199,7 @@ func generateImage(ctx context.Context, prompt, token string) (string, error) {
 	}
 
 	// Read the response body
-	data, err := ioutil.ReadAll(response.Body)
+	data, err := io.ReadAll(response.Body)
 	if err != nil {
 		fmt.Println(err)
 		return "", err
@@ -241,7 +239,7 @@ func createMedia(ctx context.Context, imgUrl, caption, igToken, igID string) (st
 	}
 
 	// Read the response body
-	data, err := ioutil.ReadAll(response.Body)
+	data, err := io.ReadAll(response.Body)
 	if err != nil {
 		fmt.Println(err)
 		return "", err
@@ -292,7 +290,7 @@ func postImage(ctx context.Context, mediaID, igToken, igID string) error {
 	}
 
 	// Read the response body
-	data, err := ioutil.ReadAll(response.Body)
+	data, err := io.ReadAll(response.Body)
 	if err != nil {
 		fmt.Println(err)
 		return err
